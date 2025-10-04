@@ -1,7 +1,7 @@
 ---
-title: "MATH-517: Assignment x"
-author: "Your name"
-date: 'date of submission'
+title: "MATH-517: Assignment 3"
+author: "Nikita Gupta"
+date: '05 October 2025'
 format: pdf
 editor: visual
 ---
@@ -12,16 +12,17 @@ Your answer goes here
 
 ## Practical exercise
 
-Unless stated otherwise, your answer to the practical part should include the following elements:
+The goal of this simulation study is to see how changing parameters such as sample size $(n)$ , number of blocks $(N)$, and the $\alpha$ and $\beta$ values for the underlying beta distribution for the covariate $X$, impacts the optimal bandwidth $h_{AMISE}$ . We do this for a regression function $Y=m(X) + \epsilon$ where $m(X) = sin ((\frac{x}{3}+0.1)^{-1})$ and $\epsilon$ \~ $N(0,\sigma^2)$. I set $\sigma^2$ =1 for simplicity. I run a simulation 200 times, iterating through all the parameters (running through all combinations of $\alpha, \beta, n, N$ ), and plot the average CP Mallow's and $h_{AMISE}$ for each of the combinations.
 
- - Description of the aim of the simulation study.
- - Description of the different quantities that intervene in your simulation study. Explain how these quantities (fixed or random) are defined and the reasoning behind the choices you made.
- - Description of your findings using appropriate graphics and/or tables (with a caption!) that are well commented in the text. 
- 
-The code should not appear in the PDF report, unless there is a specific reason to include it.
- 
+From the graphs, we can see that as the number of blocks $N$ increases, the optimal bandwidth $h_{AMISE}$ decreases. In general, it decreases sharply at first but begins to stabilize as $N$ continues to increase. This is because when there are fewer observations per block, a smaller bandwidth $h$ could results in overfitting. This is also why as sample size $n$ increases, $h_{AMISE}$ decreases - because more observations are available per block, we can use a smaller bandwidth without overfitting.
 
-```{r}
+$N$ should depend on $n$ because it is important to have enough observations for each block. If $n$ is too small and we choose too large of a $N$ then each block $N$ will have too few observations, and there will not be enough data to average out the impact of noise per block. There may be a risk of overfitting as the polynomial may be "wigglier" and overfit to noise. When $n$ is large, more blocks can be chosen as more observations are available to fit data on within each block. There are many methods to determine an optimal $N$ . One option is to find the value that minimizes Mallow's $C_p(N) = \frac{RSS(N)}{\frac{RSS(N_{\max})}{n - 5 N_{\max}}} - (n - 10 N)$ where $RSS(N) = \sum_{i=1}^{n} \sum_{j=1}^{N} \left\{ Y_i - \hat{m}_j(X_i) \right\}^2 \mathbf{1}_{X_i \in X}$ and $N_{\max} = \max \left\{ \min \left( \left\lfloor \frac{n}{20} \right\rfloor, 5 \right), 1 \right\}$. In this simulation, Mallow's $C_p$ is minimized for the minimum number of blocks (N=2).
+
+The Beta distribution parameters $(\alpha, \beta)$ controls the shape of the distribution for X. As seen in the second set of graphs below, when $\alpha$ and $\beta$ are significantly different, then the data is skewed. This means that observations cluster in some regions, but not in others - resulting in some blocks having fewer observations and reducing the reliability of the polynomials from those blocks.
+
+I have also included a Shiny App in another file (shiny_app.py) to experiment with the parameters of the simulation. This can be run from the terminal (shiny run shiny_app.py).
+
+```{python}
 #| echo: false
 #| message: false
 #| warning: false
@@ -30,4 +31,332 @@ The code should not appear in the PDF report, unless there is a specific reason 
 # The `echo: false` option disables the printing of code (only output is displayed).
 # The programming language can be changed to Python or Julia
 
+
+
+#Step 1: Import necessary libraries
+
+from shiny import App, ui, render, reactive
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import PolynomialFeatures
+from scipy.stats import beta
+import math
+
+np.random.seed(13)
+
+
+#Step 2: create regression function
+# Regression function: m(x)
+def m_func(x):
+    return np.sin(1 / (x/3 + 0.1))
+
+#Step 3: Create simulation dataset (covariate X from a beta distribution Beta (α ,β))
+def simulate_data(n, alpha, beta_param, sigma_squared):
+    X = beta.rvs(alpha, beta_param, size=n) #beta distribution to create covariate X
+    epsilon = np.random.normal(0, np.sqrt(sigma_squared), size=n) #noise (normal(0, sigma^2))
+    Y = m_func(X) + epsilon
+    return X, Y
+
+#Step 4: divide into n-blocks and fit polynomial regression in each block (to estimate m(x) locally in each block)
+#Returns a list of fitted models for each block
+#Use this to estimate theta22 and sigma^2
+def fit_polynomial_n_blocks(X, Y, N_blocks):
+    #get sample size and divide into N blocks
+    n = len(X) 
+    indices = np.array_split(np.arange(n), N_blocks)
+    
+    #create list to store block models
+    block_models = []
+
+    #for each block fit a 4th degree polynomial regression
+    for idx in indices:
+        #get x and y values for the block
+        Xi = X[idx].reshape(-1, 1) #(sklearn needs 2D array for features)
+        Yi = Y[idx] 
+        
+        #convert data into polynomial (degree 4) form - transforms data to [1,x,x^2,x^3,x^4] - so x=0.5 becomes [1,0.5,0.25,0.125,0.0625]
+        #need to manually transform X data to polynomial form before fitting linear regression using sklearn
+        polynomial_transform = PolynomialFeatures(degree=4) 
+        Xi_polynomial_transform = polynomial_transform.fit_transform(Xi)
+        
+        #create linear regression model and fit to X, Y from the block
+        model = LinearRegression()
+        model.fit(Xi_polynomial_transform, Yi)
+        
+        #store this block's model
+        block_models.append((model, idx))
+    return block_models
+
+
+#Step 5: Using the fitted models from each block, estimate theta22 and sigma^2
+
+# Estimate theta22 by using second derivative of fitted polynomial in each block
+def estimate_theta22(X, block_models):
+    n = len(X)
+    theta_hat_vals = []
+
+    #for each block model, calculate second derivative estimates and their sum of squares
+    for model, idx in block_models:
+
+        #Convert X to polynomial features (degree 4)
+        poly = PolynomialFeatures(degree=4)
+        Xi = X[idx].reshape(-1, 1)
+        Xi_poly = poly.fit_transform(Xi)
+
+        #Get coefficients of the fitted polynomial
+        coefs = model.coef_
+        b0 = model.intercept_  
+        b1 = coefs[1]
+        b2 = coefs[2]
+        b3 = coefs[3]
+        b4 = coefs[4]
+
+        #compute 2nd derivative estimate
+        Xi_vals = X[idx]
+        #because m(x) = b0 + b1*x + b2*x^2 + b3*x^3 + b4*x^4, m''(x) is below
+        m_func_2nd_deriv_est =(2 * b2) + (6 * b3 * Xi_vals) + (12 * b4 * Xi_vals**2)
+        
+        #theta = sum of squares of 2nd derivative estimates in this block
+        theta_hat_vals.append(np.sum(m_func_2nd_deriv_est**2))
+    
+    #average theta over all blocks
+    return np.sum(theta_hat_vals) / n
+
+# Estimate sigma^2 & associated rss
+def estimate_sigma_squared(X, Y, block_models):
+    n = len(X)
+    rss_total = 0
+
+    #for each block model, calculate residual sum of squares and sum them
+    for model, idx in block_models:
+        Xi = X[idx].reshape(-1, 1) #reshape to 2d for sklearn
+        Yi = Y[idx]
+
+        #Convert X to polynomial features (degree 4)
+        poly = PolynomialFeatures(degree=4)
+        Xi_poly = poly.fit_transform(Xi)
+        
+        #use the fitted model to predict Y values and calculate residuals
+        preds = model.predict(Xi_poly)
+        residuals = Yi - preds
+
+        #add this block's RSS to total RSS
+        rss_total += np.sum(residuals**2)
+
+    #estimate sigma^2
+    sigma_squared_hat = rss_total / (n - 5 * len(block_models))
+    return sigma_squared_hat, rss_total
+
+
+#Step 6: Compute h_AMISE and Mallow's Cp
+# Compute h_AMISE
+def compute_h_amise(n, sigma_squared_hat, theta22_hat, supp_x=1):
+    return (35 * sigma_squared_hat * abs(supp_x) / theta22_hat)**(1/5) * n**(-1/5)
+
+# Compute Mallow's Cp
+def compute_mallows_cp(rss_N_blocks, rss_N_block_max, n, N_blocks, N_block_max):
+    cp = (rss_N_blocks / (rss_N_block_max / (n - 5 * N_block_max))) - (n - 10 * N_blocks)
+    return cp
+
+
+#Step 7: Run simulations
+def run_simulation(n, N_blocks, alpha, beta_param, sigma_squared=1, num_times=200):
+    h_amise_list=[]
+    cp_list=[]
+    for i in range(num_times):
+        X, Y = simulate_data(n, alpha, beta_param, sigma_squared) #create data
+        block_models = fit_polynomial_n_blocks(X, Y, N_blocks) #Fit polynomial models on N blocks
+        
+        #estimate theta22 and sigma^2
+        theta22_hat = estimate_theta22(X, block_models) 
+        sigma_squared_hat, rss_N_blocks = estimate_sigma_squared(X, Y, block_models)
+        
+        #compute h_AMISE
+        h_amise = compute_h_amise(n, sigma_squared_hat, theta22_hat)
+        
+        # Compute mallow's cp  
+        N_block_max = max(min(n // 20, 5), 1) #compute n-max ( Ruppert et al. (1995) )
+        block_models_Nmax = fit_polynomial_n_blocks(X, Y, N_block_max) #fit polynomial models on Nmax blocks
+        sigma_squared_max, rss_N_block_max = estimate_sigma_squared(X, Y, block_models_Nmax) #get rss of n block max
+        cp = compute_mallows_cp(rss_N_blocks, rss_N_block_max, n, N_blocks, N_block_max) #compute CP
+
+        h_amise_list.append(h_amise)
+        cp_list.append(cp)
+    h_amise= np.sum(h_amise_list)/num_times
+    cp= np.sum(cp_list)/num_times
+    return h_amise, cp
+
+
+sample_sizes = [100, 300, 500]
+block_sizes = [2, 4, 6, 8, 10]
+alphas = [2, 5, 10]
+betas = [2, 5, 10] #alpha big beta small issues
+
+#create empty list to store results
+results = []
+# Run simulations for different parameter combinations (by sample size, block size, alphas, and betas)
+for n in sample_sizes:
+    for N_blocks in block_sizes:
+        for alpha in alphas:
+            for beta_param in betas:
+                h_amise, cp = run_simulation(n, N_blocks, alpha, beta_param)
+                results.append({
+                    "n": n,
+                    "N_blocks": N_blocks,
+                    "alpha": alpha,
+                    "beta": beta_param,
+                    "h_AMISE": h_amise,
+                    "Cp": cp
+                })
+
+# Convert results to DataFrame
+df = pd.DataFrame(results)
+sns.set(style="whitegrid")
+
+# Set up the figure with subplots: sample_sizes × 2 (h_AMISE, Cp)
+fig, axes = plt.subplots(
+    nrows=len(sample_sizes),
+    ncols=2,
+    figsize=(12, 5 * len(sample_sizes)),
+    sharex=True,
+    sharey='col'  # Share y-axis within each column (h_AMISE, Cp)
+)
+
+# Define colors and line styles to ensure consistency
+palette = sns.color_palette("tab10", n_colors=len(alphas))
+linestyles = ['solid', 'dashed', 'dotted', 'dashdot']
+
+legend_handles = []
+legend_labels = []
+
+for i, n_val in enumerate(sample_sizes):
+    df_subset = df[df["n"] == n_val]
+
+    # --- Plot h_AMISE (left column) ---
+    ax1 = axes[i, 0]
+    sns.lineplot(
+        data=df_subset,
+        x="N_blocks", y="h_AMISE",
+        hue="alpha", style="beta",
+        palette=palette,
+        ax=ax1,
+        markers=True,
+        dashes=True,
+        legend=False  # No individual legends here
+    )
+    ax1.set_title(f"Sample Size: {n_val} — h_AMISE")
+    ax1.set_xlabel("N_blocks")
+    ax1.set_ylabel("h_AMISE")
+
+    # --- Plot Cp (right column) ---
+    ax2 = axes[i, 1]
+
+    legend_flag = (i == len(sample_sizes) - 1)  # Legend only on last row
+
+    sns.lineplot(
+        data=df_subset,
+        x="N_blocks", y="Cp",
+        hue="alpha", style="beta",
+        palette=palette,
+        ax=ax2,
+        markers=True,
+        dashes=True,
+        legend=legend_flag
+    )
+    ax2.set_title(f"Sample Size: {n_val} — Mallow's Cp")
+    ax2.set_xlabel("N_blocks")
+    ax2.set_ylabel("Cp")
+
+    if legend_flag:
+        handles, labels = ax2.get_legend_handles_labels()
+        legend_handles = handles
+        legend_labels = labels
+
+# Place shared legend below all subplots
+fig.legend(
+    handles=legend_handles,
+    labels=legend_labels,
+    title="Alpha (color) / Beta (style)",
+    loc='lower center',
+    bbox_to_anchor=(0.5, -0.02),
+    ncol=4,
+    frameon=False
+)
+
+plt.tight_layout(rect=[0, 0.05, 1, 0.95])
+plt.suptitle("Effect of Block Size N on h_AMISE and Mallow's Cp", fontsize=18)
+plt.show()
+
+#only do 1 sample size - too many graphs otherwise.
+def plot_density_with_blocks_varying_params_grid(sample_size, alphas, betas, N_blocks=5, sigma_squared=1):
+    
+    # Total number of plots
+    total_plots = len(sample_sizes) * len(alphas) * len(betas)
+    
+    # Define number of columns and rows
+    ncols = 3
+    nrows = math.ceil(total_plots / ncols)
+    
+    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(30, 4 * nrows), sharex=True, sharey=True)
+    axes = axes.flatten()  # flatten to 1D for easier indexing
+    
+    plot_idx = 0
+    
+    for n in sample_sizes:
+        for alpha in alphas:
+            for beta_param in betas:
+                ax = axes[plot_idx]
+                
+                # Simulate data
+                X, Y = simulate_data(n, alpha, beta_param, sigma_squared)
+                block_edges = np.quantile(X, np.linspace(0, 1, N_blocks + 1))
+                
+                # Count observations per block
+                counts = []
+                for i in range(N_blocks):
+                    if i == N_blocks - 1:
+                        count = np.sum((X >= block_edges[i]) & (X <= block_edges[i + 1]))
+                    else:
+                        count = np.sum((X >= block_edges[i]) & (X < block_edges[i + 1]))
+                    counts.append(count)
+                
+                # Plot  on current axis
+                sns.kdeplot(X, fill=True, bw_adjust=0.5, color="skyblue", ax=ax)
+                ax.set_title(f"Alpha, Beta ({alpha}, {beta_param}), n={n}, Blocks={N_blocks}")
+                ax.set_xlabel("X")
+                ax.set_ylabel("Density")
+                
+                # Overlay block boundaries and counts
+                ylim = ax.get_ylim()
+                for i, edge in enumerate(block_edges):
+                    ax.axvline(edge, color='red', linestyle='--', alpha=0.7)
+                    if i < N_blocks:
+                        mid = (block_edges[i] + block_edges[i + 1]) / 2
+                        ax.text(mid, ylim[1] * 0.8, f'n={counts[i]}', 
+                                ha='center', color='black', fontsize=10)
+                
+                plot_idx += 1
+    
+    # Remove empty subplots if any
+    for i in range(plot_idx, len(axes)):
+        fig.delaxes(axes[i])
+    
+    plt.tight_layout()
+    fig.subplots_adjust(top=0.9)  # give space for suptitle
+    plt.suptitle("Density of X with Beta Distributions and Block Boundaries", fontsize=16, y=1.02)
+    plt.show()
+
+plot_density_with_blocks_varying_params_grid(sample_size=500, alphas=alphas, betas=betas, N_blocks=5)
+
+
+
+
 ```
+
+```         
+```
+
+\`\`\`
