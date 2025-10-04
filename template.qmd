@@ -14,7 +14,7 @@ Your answer goes here
 
 The goal of this simulation study is to see how changing parameters such as sample size $(n)$ , number of blocks $(N)$, and the $\alpha$ and $\beta$ values for the underlying beta distribution for the covariate $X$, impacts the optimal bandwidth $h_{AMISE}$ . We do this for a regression function $Y=m(X) + \epsilon$ where $m(X) = sin ((\frac{x}{3}+0.1)^{-1})$ and $\epsilon$ \~ $N(0,\sigma^2)$. I set $\sigma^2$ =1 for simplicity. I run a simulation 200 times, iterating through all the parameters (running through all combinations of $\alpha, \beta, n, N$ ), and plot the average CP Mallow's and $h_{AMISE}$ for each of the combinations.
 
-From the graphs, we can see that as the number of blocks $N$ increases, the optimal bandwidth $h_{AMISE}$ decreases. In general, it decreases sharply at first but begins to stabilize as $N$ continues to increase. This is because when there are fewer observations per block, a smaller bandwidth $h$ could results in overfitting. This is also why as sample size $n$ increases, $h_{AMISE}$ decreases - because more observations are available per block, we can use a smaller bandwidth without overfitting.
+From the graphs, we can see that as the number of blocks $N$ increases, the optimal bandwidth $h_{AMISE}$ decreases. In general, it decreases sharply at first but begins to stabilize as $N$ continues to increase. This is because when there are fewer observations per block, a smaller bandwidth $h$ could results in overfitting. This is also why as sample size $n$ increases, $h_{AMISE}$ decreases - because more observations are available per block, we can use a smaller bandwidth without overfitting (note: focus on comparing lines where $\alpha=\beta$ to reduce the impact of the Beta distribution parameters discused below.
 
 $N$ should depend on $n$ because it is important to have enough observations for each block. If $n$ is too small and we choose too large of a $N$ then each block $N$ will have too few observations, and there will not be enough data to average out the impact of noise per block. There may be a risk of overfitting as the polynomial may be "wigglier" and overfit to noise. When $n$ is large, more blocks can be chosen as more observations are available to fit data on within each block. There are many methods to determine an optimal $N$ . One option is to find the value that minimizes Mallow's $C_p(N) = \frac{RSS(N)}{\frac{RSS(N_{\max})}{n - 5 N_{\max}}} - (n - 10 N)$ where $RSS(N) = \sum_{i=1}^{n} \sum_{j=1}^{N} \left\{ Y_i - \hat{m}_j(X_i) \right\}^2 \mathbf{1}_{X_i \in X}$ and $N_{\max} = \max \left\{ \min \left( \left\lfloor \frac{n}{20} \right\rfloor, 5 \right), 1 \right\}$. In this simulation, Mallow's $C_p$ is minimized for the minimum number of blocks (N=2).
 
@@ -346,7 +346,7 @@ def plot_density_with_blocks_varying_params_grid(sample_size, alphas, betas, N_b
     
     plt.tight_layout()
     fig.subplots_adjust(top=0.9)  # give space for suptitle
-    plt.suptitle("Density of X with Beta Distributions and Block Boundaries", fontsize=16, y=1.02)
+    plt.suptitle("Density of X by Alpha, Beta, and Sample Size", fontsize=30, y=1.02)
     plt.show()
 
 plot_density_with_blocks_varying_params_grid(sample_size=500, alphas=alphas, betas=betas, N_blocks=5)
@@ -355,8 +355,3 @@ plot_density_with_blocks_varying_params_grid(sample_size=500, alphas=alphas, bet
 
 
 ```
-
-```         
-```
-
-\`\`\`
