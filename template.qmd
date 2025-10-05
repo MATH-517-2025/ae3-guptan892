@@ -8,19 +8,197 @@ editor: visual
 
 ## Theoretical exercise
 
-Your answer goes here
+#### Part 1
+
+We are given i.i.d. samples $(x_i, y_i)$, $i=1,...,n$ from the model $y_i = m(x_i) + \varepsilon_i$. Our goal is to estimate $m$ with some function $\hat{m}$ . The local linear regression estimator at a point $x$ is defined by
+
+$\hat{\beta}_0(x), \hat{\beta}_1(x) = \arg\min_{\beta_0, \beta_1 \in \mathbb{R}} \sum_{i=1}^n \left(Y_i - \beta_0 - \beta_1 (X_i - x)\right)^2 K\left( \frac{X_i - x}{h} \right)$ where $K$ is a kernel function and $h>0$ is a bandwidth. The fitted value is then given by $\hat{m}(x) = \hat{\beta}_0(x)$ .
+
+We list the response matrix $Y$, the design matrix $X$, and the weight matrix $W$ below.
+
+$$
+\mathbf{Y}=[Y_1, Y_2, ..., Y_n]^T\in \mathbb{R}^{1 \times n}
+$$
+
+$$
+\mathbf{X} =\begin{bmatrix} 1 & X_1-X \\ 1 & X_2 - X \\ \vdots & \vdots \\ 1 & X_n-X \end{bmatrix}\in \mathbb{R}^{n \times 2}
+$$
+
+$$
+\mathbf{W} = \mathrm{diag}(K\frac{X_1-x}{h}), \dots, K\frac{X_n-x}{h}) \in \mathbb{R}^{n \times n}
+$$
+
+The coefficient matrix $\hat{\beta}$ below is the solution for a weighted least squares problem.
+
+$$
+\hat{\beta}(x) = (\mathbf{X}^T \mathbf{W} \mathbf{X})^{-1} \mathbf{X}^T \mathbf{W} \mathbf{Y}
+$$
+
+where $\hat{\beta}(x)=[\hat{\beta}_0(x), \hat{\beta}_1(x) ]^T$
+
+So given that the the fitted value at $x$ can be expressed by $\hat{m}(x) = \hat{\beta}_0(x)$ then $$
+\hat{m}(x) = \hat{\beta}_0(x) = 
+\begin{bmatrix} 1 & 0 \end{bmatrix}
+(\mathbf{X}^T \mathbf{W} \mathbf{X})^{-1} \mathbf{X}^T \mathbf{W} \mathbf{Y}$$ Note that in the above formula for $\hat{m}(x)$ , $\mathbf{Y}$ only appears once. Everything else in the equation does not depend on $\mathbf{Y}$. So we can set the weights such that
+
+$$
+\mathbf{w_n}=[w_{n1}(x), ..., w_{nn}(x)]=\begin{bmatrix} 1 & 0 \end{bmatrix}
+(\mathbf{X}^T \mathbf{W} \mathbf{X})^{-1} \mathbf{X}^T \mathbf{W} 
+$$
+
+and we end up with
+
+$$
+\hat{m}(x) = \sum_{i=1}^n w_{ni}(x) Y_i
+$$
+
+where $\hat{m}(x)$ is a weighted average of the observations, and the weights $w_{ni}(x)$ only depend on $x, X_i, h, K$, but not on the responses $Y_i$.
+
+#### Part 2
+
+We are given that $S_{n,k}(x) = \frac{1}{n h} \sum_{i=1}^n (X_i - x)^k K\left( \frac{X_i - x}{h} \right), \quad k = 0, 1, 2$.
+
+We know that $\mathbf{w_n}=[w_{n1}(x), ..., w_{nn}(x)]=\begin{bmatrix} 1 & 0 \end{bmatrix}(\mathbf{X}^T \mathbf{W} \mathbf{X})^{-1} \mathbf{X}^T \mathbf{W}$.
+
+First we will calculate $(\mathbf{X}^T \mathbf{W} \mathbf{X})^{-1}$. The (j,k) elements of $(\mathbf{X}^T \mathbf{W} \mathbf{X})$ is given by $(\mathbf{X}^T \mathbf{W} \mathbf{X})_{jk} = \sum_{i=1}^n X_{ij} W_{ii} X_{ik}$ where $(j,k) \in {1, 2}$ represent the columns of our design matrix $\mathbf{X}$. So then using matrix multiplication (steps not shown here) we can write:
+
+$$
+(\mathbf{X}^T \mathbf{W} \mathbf{X}) = \begin{bmatrix}\sum_{i=1}^n 1 \cdot K\left(\frac{X_i - x}{h}\right) \cdot 1 & \sum_{i=1}^n 1 \cdot K\left(\frac{X_i - x}{h}\right) (X_i - x) \\\sum_{i=1}^n (X_i - x) K\left(\frac{X_i - x}{h}\right) \cdot 1 & \sum_{i=1}^n (X_i - x) K\left(\frac{X_i - x}{h}\right) (X_i - x)\end{bmatrix}
+$$
+
+If we divide by $nh$, we can represent this using $S_{n,k}$ above as
+
+$$
+\frac{1}{n h} \mathbf{X}^T \mathbf{W} \mathbf{X} = \begin{bmatrix}S_{n,0}(x) & S_{n,1}(x) \\S_{n,1}(x) & S_{n,2}(x)\end{bmatrix}
+$$
+
+We know that for a 2x2 invertible matrix
+
+$$
+\mathbf{A}=\begin{bmatrix}a & b \\c & d\end{bmatrix}, \mathbf{A^{-1}}=\frac{1}{ad-bc}\begin{bmatrix}d & -b \\-c & a\end{bmatrix},\text{if } ad-bc \neq0
+$$
+
+With the matrix $\frac{1}{nh}\mathbf{X}^T \mathbf{W} \mathbf{X}$ we get
+
+$$
+\left( \frac{1}{n h} \mathbf{X}^T \mathbf{W} \mathbf{X} \right)^{-1} = \frac{1}{S_{n,0}(x) S_{n,2}(x) - S_{n,1}(x)^2}\begin{bmatrix}S_{n,2}(x) & -S_{n,1}(x) \\-S_{n,1}(x) & S_{n,0}(x)\end{bmatrix}, \text{if } S_{n,0}(x) S_{n,2}(x) - S_{n,1}(x)^2\neq0
+$$
+
+So then we do some algebra to get:
+
+$$
+\left( \mathbf{X}^T \mathbf{W} \mathbf{X} \right)^{-1} = \frac{1}{nh}\frac{1}{S_{n,0}(x) S_{n,2}(x) - S_{n,1}(x)^2}\begin{bmatrix}S_{n,2}(x) & -S_{n,1}(x) \\-S_{n,1}(x) & S_{n,0}(x)\end{bmatrix}, \text{if } S_{n,0}(x) S_{n,2}(x) - S_{n,1}(x)^2\neq0
+$$
+
+Going to our original equation, we get:
+
+$\mathbf{w_n}=\begin{bmatrix} 1 & 0 \end{bmatrix} \frac{1}{nh}\frac{1}{S_{n,0}(x) S_{n,2}(x) - S_{n,1}(x)^2}\begin{bmatrix}S_{n,2}(x) & -S_{n,1}(x) \\-S_{n,1}(x) & S_{n,0}(x)\end{bmatrix} \mathbf{X}^T \mathbf{W}$
+
+Next we calculate $\mathbf{X^{T}W}$. We know that since $\mathbf{W}$ is a diagonal matrix $W_{k,i}=0$ when $k\neq{i}$, so we can write the product as:
+
+$$
+(\mathbf{X}^T \mathbf{W})_{j,i} = \sum_{k=1}^n X_{k,j} W_{k,i} = X_{i,j} W_{i,i}
+$$
+
+This results in the below:
+
+$$
+\mathbf{X}^T \mathbf{W} =
+\begin{bmatrix}K\left(\frac{X_1 - x}{h}\right) & K\left(\frac{X_2 - x}{h}\right) & \cdots & K\left(\frac{X_n - x}{h}\right) \\(X_1 - x) K\left(\frac{X_1 - x}{h}\right) & (X_2 - x) K\left(\frac{X_2 - x}{h}\right) & \cdots & (X_n - x) K\left(\frac{X_n - x}{h}\right)\end{bmatrix}
+$$
+
+Now we get the below and can do matrix multiplication.
+
+$\mathbf{w_n}=\begin{bmatrix} 1 & 0 \end{bmatrix} \frac{1}{nh}\frac{1}{S_{n,0}(x) S_{n,2}(x) - S_{n,1}(x)^2}\begin{bmatrix}S_{n,2}(x) & -S_{n,1}(x) \\-S_{n,1}(x) & S_{n,0}(x)\end{bmatrix} \begin{bmatrix}K\left(\frac{X_1 - x}{h}\right)& \cdots & K\left(\frac{X_n - x}{h}\right) \\(X_1 - x) K\left(\frac{X_1 - x}{h}\right)  & \cdots & (X_n - x) K\left(\frac{X_n - x}{h}\right)\end{bmatrix}$
+
+First, we multiply the right two matrices. This is a 2x2 matrix multiplied by a 2xn matrix, resulting in a 2xn matrix as follows:
+
+$$
+\begin{bmatrix}S_{n,2}(x)\cdot{K}\left(\frac{X_1 - x}{h}\right) - S_{n,1}(x)\cdot(X_1-x)K\frac{X_1-x}{h}) & \cdots & S_{n,2}(x)\cdot{K}\left(\frac{X_n - x}{h}\right) - S_{n,1}(x)\cdot(X_n-x)K\frac{X_n-x}{h}) \\ -S_{n,1}(x)\cdot{K}\left(\frac{X_1 - x}{h}\right) + S_{n,0}(x)\cdot(X_1-x)K\frac{X_1-x}{h}) & \cdots & -S_{n,1}(x)\cdot{K}\left(\frac{X_n - x}{h}\right) + S_{n,0}(x)\cdot(X_n-x)K\frac{X_n-x}{h}) \end{bmatrix} 
+$$
+
+Then we multiply the 1x2 $\begin{bmatrix} 1 & 0 \end{bmatrix}$ matrix into the above 2xn matrix, resulting in the following 1xn matrix (note: since the second term in the 1x2 matrix is 0, we can ignore the second row of our matrix above due to the properties of matrix multiplication). We also bring in the scalar factors, resulting in:
+
+$$
+\mathbf{w_n}=\frac{1}{nh}\frac{1}{S_{n,0}(x) S_{n,2}(x) - S_{n,1}(x)^2}
+\begin{bmatrix}S_{n,2}(x)\cdot{K}\left(\frac{X_1 - x}{h}\right) - S_{n,1}(x)\cdot(X_1-x)K\frac{X_1-x}{h}) \\ &\cdots& \\ S_{n,2}(x)\cdot{K}\left(\frac{X_n - x}{h}\right) - S_{n,1}(x)\cdot(X_n-x)K\frac{X_n-x}{h})  \end{bmatrix}^T 
+$$
+
+#### Part 3
+
+We want to prove that $\sum_{i=1}^n w_{ni}(x) = 1$. We can rewrite the above equation for $\mathbf{w_n}$ to rely on the columns $i$ as follows:
+
+$$
+\mathbf{w_n}=\frac{1}{nh}\frac{1}{S_{n,0}(x) S_{n,2}(x) - S_{n,1}(x)^2}
+\begin{bmatrix}S_{n,2}(x)\cdot{K}\left(\frac{X_i - x}{h}\right) - S_{n,1}(x)\cdot(X_i-x)K\frac{X_i-x}{h})  \end{bmatrix} 
+$$
+
+$$
+\mathbf{w_n} = \frac{1}{nh}\frac{S_{n,2}(x)-S_{n_1}(x)(X_i-x)}{S_{n,0}(x) S_{n,2}(x) - S_{n,1}(x)^2}
+\begin{bmatrix}{K}\left(\frac{X_i - x}{h}\right)  \end{bmatrix}
+$$
+
+Substituting our equation above in and factoring out terms that don't depend on $i$, we get:
+
+$$
+\sum_{i=1}^n w_{ni}(x) = \sum_{i=1}^n \left[ \frac{1}{nh} \cdot \frac{S_{n,2}(x) - S_{n,1}(x)(X_i - x)}{S_{n,0}(x) S_{n,2}(x) - S_{n,1}(x)^2} \cdot K\left( \frac{X_i - x}{h} \right) \right] 
+$$
+
+$$
+\sum_{i=1}^n w_{ni}(x) = \frac{1}{nh} \cdot \frac{1}{S_{n,0}(x) S_{n,2}(x) - S_{n,1}(x)^2} \sum_{i=1}^n \left[ \left( S_{n,2}(x) - S_{n,1}(x)(X_i - x) \right) K\left( \frac{X_i - x}{h} \right) \right]
+$$
+
+We can then split the summation and factor out constants again to get
+
+$$
+\sum_{i=1}^n w_{ni}(x)= \frac{1}{nh} \cdot \frac{1}{S_{n,0}(x) S_{n,2}(x) - S_{n,1}(x)^2} \left[ S_{n,2}(x) \sum_{i=1}^n K\left( \frac{X_i - x}{h} \right) - S_{n,1}(x) \sum_{i=1}^n (X_i - x) K\left( \frac{X_i - x}{h} \right) \right]
+$$
+
+From the definition of $S_{n,k}$ given above, we know that:
+
+$$
+S_{n,0}(x)=\frac{1}{nh}\sum_{i=1}^n K\left( \frac{X_i - x}{h} \right) \text{ so }
+\sum_{i=1}^n K\left( \frac{X_i - x}{h} \right) = nh \cdot S_{n,0}(x)
+$$
+
+$$
+S_{n,1}(x)=\frac{1}{nh}\sum_{i=1}^n (X_i-x)\cdot{K}\left( \frac{X_i - x}{h} \right) \text{ so }
+\sum_{i=1}^n (X_i-x)\cdot{K}\left( \frac{X_i - x}{h} \right) = nh \cdot S_{n,1}(x)
+$$
+
+Substituting these in, we get:
+
+$$
+\sum_{i=1}^n w_{ni}(x)= \frac{1}{nh} \cdot \frac{1}{S_{n,0}(x) S_{n,2}(x) - S_{n,1}(x)^2} \left[ S_{n,2}(x) \cdot nh \cdot S_{n,0}(x) - S_{n,1}(x) \cdot nh \cdot S_{n,1}(x) \right]
+$$
+
+$$
+\sum_{i=1}^n w_{ni}(x)= \frac{1}{nh} \cdot \frac{nh \left[ S_{n,0}(x) S_{n,2}(x) - S_{n,1}(x)^2 \right]}{S_{n,0}(x) S_{n,2}(x) - S_{n,1}(x)^2}
+$$
+
+$$
+\sum_{i=1}^n w_{ni}(x)= \frac{S_{n,0}(x) S_{n,2}(x) - S_{n,1}(x)^2}{S_{n,0}(x) S_{n,2}(x) - S_{n,1}(x)^2} = 1
+$$
 
 ## Practical exercise
 
-The goal of this simulation study is to see how changing parameters such as sample size $(n)$ , number of blocks $(N)$, and the $\alpha$ and $\beta$ values for the underlying beta distribution for the covariate $X$, impacts the optimal bandwidth $h_{AMISE}$ . We do this for a regression function $Y=m(X) + \epsilon$ where $m(X) = sin ((\frac{x}{3}+0.1)^{-1})$ and $\epsilon$ \~ $N(0,\sigma^2)$. I set $\sigma^2$ =1 for simplicity. I run a simulation 200 times, iterating through all the parameters (running through all combinations of $\alpha, \beta, n, N$ ), and plot the average CP Mallow's and $h_{AMISE}$ for each of the combinations.
+The goal of this simulation study is to see how changing parameters such as sample size $(n)$ , number of blocks $(N)$, and the $\alpha$ and $\beta$ values for the underlying beta distribution for the covariate $X$, impacts the optimal bandwidth $h_{AMISE}$ . We do this for a regression function $Y=m(X) + \epsilon$ where $m(X) = sin ((\frac{x}{3}+0.1)^{-1})$ and $\epsilon$ \~ $N(0,\sigma^2)$. I set $\sigma^2$ =1 for simplicity. I run a simulation 200 times, iterating through all the parameters (running through all combinations of $\alpha, \beta, n, N$ ), and plot the average CP Mallow's and $h_{AMISE}$ for each of the combinations. We run through:
 
-From the graphs, we can see that as the number of blocks $N$ increases, the optimal bandwidth $h_{AMISE}$ decreases. In general, it decreases sharply at first but begins to stabilize as $N$ continues to increase. This is because when there are fewer observations per block, a smaller bandwidth $h$ could results in overfitting. This is also why as sample size $n$ increases, $h_{AMISE}$ decreases - because more observations are available per block, we can use a smaller bandwidth without overfitting (note: focus on comparing lines where $\alpha=\beta$ to reduce the impact of the Beta distribution parameters discused below.
+-   Sample Size (n) = 100, 300, 500
+
+-   Number of blocks (N) = 2, 4, 6, 8, 10
+
+-   $\alpha$ = 2, 5, 10
+
+-   $\beta$ = 2,5,10
+
+From the graphs, we can see that as the number of blocks $N$ increases, the optimal bandwidth $h_{AMISE}$ decreases. In general, it decreases sharply at first but begins to stabilize as $N$ continues to increase. This is because when there are fewer observations per block, a smaller bandwidth $h$ could results in overfitting. This is also why as sample size $n$ increases, $h_{AMISE}$ decreases - because more observations are available per block, we can use a smaller bandwidth without overfitting (note: focus on comparing lines where $\alpha=\beta$ to reduce the impact of the Beta distribution parameters discussed below.
 
 $N$ should depend on $n$ because it is important to have enough observations for each block. If $n$ is too small and we choose too large of a $N$ then each block $N$ will have too few observations, and there will not be enough data to average out the impact of noise per block. There may be a risk of overfitting as the polynomial may be "wigglier" and overfit to noise. When $n$ is large, more blocks can be chosen as more observations are available to fit data on within each block. There are many methods to determine an optimal $N$ . One option is to find the value that minimizes Mallow's $C_p(N) = \frac{RSS(N)}{\frac{RSS(N_{\max})}{n - 5 N_{\max}}} - (n - 10 N)$ where $RSS(N) = \sum_{i=1}^{n} \sum_{j=1}^{N} \left\{ Y_i - \hat{m}_j(X_i) \right\}^2 \mathbf{1}_{X_i \in X}$ and $N_{\max} = \max \left\{ \min \left( \left\lfloor \frac{n}{20} \right\rfloor, 5 \right), 1 \right\}$. In this simulation, Mallow's $C_p$ is minimized for the minimum number of blocks (N=2).
 
 The Beta distribution parameters $(\alpha, \beta)$ controls the shape of the distribution for X. As seen in the second set of graphs below, when $\alpha$ and $\beta$ are significantly different, then the data is skewed. This means that observations cluster in some regions, but not in others - resulting in some blocks having fewer observations and reducing the reliability of the polynomials from those blocks.
 
-I have also included a Shiny App in another file (shiny_app.py) to experiment with the parameters of the simulation. This can be run from the terminal (shiny run shiny_app.py).
+I have also included a Shiny App in another file (shiny_app.py) to experiment with the parameters of the simulation. This can be run from the terminal with the code (shiny run shiny_app.py).
 
 ```{python}
 #| echo: false
